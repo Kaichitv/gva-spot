@@ -1,15 +1,24 @@
 import { timingSafeEqual } from "node:crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { formatSummary, runNotifier } from "@/lib/notify";
 
-// Déclencheur HTTP du notifier, pour un scheduler externe (cron-job.org,
-// Vercel Cron, crontab + curl…). Protégé par CRON_SECRET, passé en
-// `?token=` ou en header `Authorization: Bearer <secret>`.
+// Déclencheur HTTP du rafraîchissement + notifier, pour un scheduler externe
+// (cron-job.org, Vercel Cron, crontab + curl…). Protégé par CRON_SECRET, passé
+// en `?token=` ou en header `Authorization: Bearer <secret>`.
+// Répond tout de suite (202) et travaille après la réponse : les schedulers
+// coupent vite (~30 s) alors qu'un rafraîchissement dure ~1 min. `?wait=1`
+// attend la fin et renvoie le résumé (débogage manuel).
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const runtime = "nodejs";
 export const preferredRegion = "fra1";
-export const maxDuration = 120;
+export const maxDuration = 300;
+
+async function runAndLog() {
+  const summary = await runNotifier();
+  console.log("[notify]\n" + formatSummary(summary));
+  return summary;
+}
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -38,10 +47,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401, headers: NO_STORE });
   }
 
+  if (req.nextUrl.searchParams.get("wait") !== "1") {
+    after(() =>
+      runAndLog().catch((e) =>
+        console.error("[notify]", e instanceof Error ? e.message : String(e))
+      )
+    );
+    return NextResponse.json({ accepted: true }, { status: 202, headers: NO_STORE });
+  }
+
   try {
-    const summary = await runNotifier();
-    console.log("[notify]\n" + formatSummary(summary));
-    return NextResponse.json(summary, { headers: NO_STORE });
+    return NextResponse.json(await runAndLog(), { headers: NO_STORE });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[notify]", message);

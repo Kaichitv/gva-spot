@@ -1,24 +1,16 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import { DATA_DIR } from "./data-dir";
+import { kvGet, kvSet } from "./kv";
 import type { SearchCriteria } from "./types";
 
 /**
  * Store des abonnements Web Push + ledger des annonces déjà notifiées.
  *
- * ⚠️ STOCKAGE : fichiers JSON sous `data/` (ou `/tmp` en serverless, voir plus
- * bas). Parfait en auto-hébergé (un seul process Node, disque persistant),
- * mais ÉPHÉMÈRE en serverless (Vercel, Netlify…) : le disque n'y survit pas
- * entre deux invocations. Pour un déploiement serverless fiable, c'est ICI
- * qu'il faut brancher un KV (Upstash Redis, Vercel KV…) : réimplémenter
- * `readJson` / `writeJson` (ou les fonctions exportées ci-dessous) sur le KV,
- * le reste de l'app ne change pas.
- *
- * Données stockées : endpoint + clés de chiffrement du navigateur abonné et les
- * critères de recherche. Aucune donnée d'annonceur, aucun contact.
+ * Stockage via kv.ts : Turso en production (persistant), fichiers `data/`
+ * sinon. Données stockées : endpoint + clés de chiffrement du navigateur
+ * abonné et les critères de recherche. Aucune donnée d'annonceur, aucun contact.
  */
-const SUBS_FILE = path.join(DATA_DIR, "subscriptions.json");
-const NOTIFIED_FILE = path.join(DATA_DIR, "notified.json");
+
+const SUBS_KEY = "subscriptions";
+const NOTIFIED_KEY = "notified";
 
 /** Taille max du ledger : on garde les N ids les plus récents. */
 const NOTIFIED_MAX = 5000;
@@ -43,27 +35,6 @@ export interface StoredSubscription extends PushSubscriptionJSON {
 
 interface NotifiedLedger {
   ids: string[];
-}
-
-async function ensureDir() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-}
-
-async function readJson<T>(file: string, fallback: T): Promise<T> {
-  try {
-    const raw = await fs.readFile(file, "utf8");
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-/** Écriture atomique (fichier temporaire + rename) pour ne jamais laisser un JSON tronqué. */
-async function writeJson(file: string, data: unknown): Promise<void> {
-  await ensureDir();
-  const tmp = `${file}.${process.pid}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
-  await fs.rename(tmp, file);
 }
 
 // Sérialise les lectures-écritures dans ce process (évite qu'un POST et un
@@ -130,7 +101,7 @@ export function sanitizeCriteria(v: unknown): SearchCriteria {
 // --- Abonnements ------------------------------------------------------------
 
 export async function list(): Promise<StoredSubscription[]> {
-  return readJson<StoredSubscription[]>(SUBS_FILE, []);
+  return kvGet<StoredSubscription[]>(SUBS_KEY, []);
 }
 
 /** Ajoute un abonnement ou met à jour celui qui a le même endpoint. */
@@ -144,7 +115,7 @@ export function addOrUpdate(
     if (existing) {
       existing.keys = sub.keys;
       existing.criteria = criteria;
-      await writeJson(SUBS_FILE, subs);
+      await kvSet(SUBS_KEY, subs);
       return existing;
     }
     if (subs.length >= MAX_SUBSCRIPTIONS) {
@@ -157,7 +128,7 @@ export function addOrUpdate(
       createdAt: new Date().toISOString(),
     };
     subs.push(stored);
-    await writeJson(SUBS_FILE, subs);
+    await kvSet(SUBS_KEY, subs);
     return stored;
   });
 }
@@ -168,7 +139,7 @@ export function remove(endpoint: string): Promise<boolean> {
     const subs = await list();
     const next = subs.filter((s) => s.endpoint !== endpoint);
     if (next.length === subs.length) return false;
-    await writeJson(SUBS_FILE, next);
+    await kvSet(SUBS_KEY, next);
     return true;
   });
 }
@@ -183,7 +154,7 @@ export function updateCriteria(
     const sub = subs.find((s) => s.endpoint === endpoint);
     if (!sub) return false;
     sub.criteria = criteria;
-    await writeJson(SUBS_FILE, subs);
+    await kvSet(SUBS_KEY, subs);
     return true;
   });
 }
@@ -195,7 +166,7 @@ export function updateCriteria(
  * le notifier s'en sert pour amorcer sans envoyer tout le stock existant.
  */
 export async function loadNotified(): Promise<Set<string> | null> {
-  const ledger = await readJson<NotifiedLedger | null>(NOTIFIED_FILE, null);
+  const ledger = await kvGet<NotifiedLedger | null>(NOTIFIED_KEY, null);
   if (!ledger || !Array.isArray(ledger.ids)) return null;
   return new Set(ledger.ids);
 }
@@ -203,7 +174,7 @@ export async function loadNotified(): Promise<Set<string> | null> {
 /** Ajoute des ids au ledger (les plus récents en fin de liste, borné à NOTIFIED_MAX). */
 export function addNotified(ids: Iterable<string>): Promise<void> {
   return serialized(async () => {
-    const ledger = await readJson<NotifiedLedger>(NOTIFIED_FILE, { ids: [] });
+    const ledger = await kvGet<NotifiedLedger>(NOTIFIED_KEY, { ids: [] });
     const current = Array.isArray(ledger.ids) ? ledger.ids : [];
     const known = new Set(current);
     for (const id of ids) {
@@ -212,6 +183,6 @@ export function addNotified(ids: Iterable<string>): Promise<void> {
         current.push(id);
       }
     }
-    await writeJson(NOTIFIED_FILE, { ids: current.slice(-NOTIFIED_MAX) });
+    await kvSet(NOTIFIED_KEY, { ids: current.slice(-NOTIFIED_MAX) });
   });
 }

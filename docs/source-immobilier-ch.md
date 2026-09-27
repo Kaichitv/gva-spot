@@ -34,7 +34,7 @@ Fichier : `src/lib/sources/immobilier.ts`.
 4. **NPA retrouvé par les coordonnées** : la plupart des adresses n'indiquent
    pas le NPA (« Genève, Av. du Bouchet 8 »). On l'obtient via l'API publique
    de **swisstopo** (géocodage inverse), ce qui donne le quartier et permet le
-   dédoublonnage avec Flatfox. Résultats mis en cache dans `data/geo-zip.json` :
+   dédoublonnage avec Flatfox. Résultats mis en cache (clé `geo-zip`, Turso ou `data/`) :
    chaque coordonnée n'est demandée qu'une fois.
 5. L'adresse est reformatée comme chez Flatfox (« Rue X 8, 1209 Genève »).
 

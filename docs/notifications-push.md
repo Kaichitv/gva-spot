@@ -38,7 +38,7 @@ minimum, et le site doit être en HTTPS.
 ```
 Navigateur                          Serveur
 ──────────                          ───────
-Bouton Alertes ── abonnement ─────▶ data/subscriptions.json
+Bouton Alertes ── abonnement ─────▶ abonnements (Turso / data/)
 Critères modifiés ── mise à jour ─▶ (critères de l'abonnement)
 
                                     Toutes les 15 min (cron ou ping HTTP) :
@@ -49,10 +49,10 @@ Critères modifiés ── mise à jour ─▶ (critères de l'abonnement)
                                        n'ont jamais été notifiées
                                     4. envoie UN push récapitulatif
 Service worker ◀────── push ─────── 5. retient les annonces notifiées
-affiche la notif                       (data/notified.json)
+affiche la notif                       (registre `notified`)
 ```
 
-- **Registre des annonces notifiées** (`data/notified.json`) : séparé du badge
+- **Registre des annonces notifiées** (clé `notified`) : séparé du badge
   « Nouveau » de l'interface. Il garde les 5 000 dernières annonces envoyées. Un
   même bien présent sur plusieurs portails n'est notifié qu'une fois.
 - **Premier passage** : le registre est rempli avec le stock actuel **sans rien
@@ -90,10 +90,11 @@ affiche la notif                       (data/notified.json)
 
 ## Limites
 
-- **Stockage sur disque** : parfait si l'app tourne sur ta machine ou un serveur,
-  mais effacé à chaque exécution sur un hébergement serverless (Vercel). Dans ce
-  cas, il faut brancher un stockage clé-valeur (Upstash, Vercel KV) dans
-  `src/lib/push-store.ts`.
+- **Stockage** : Turso si `TURSO_DATABASE_URL` est défini (obligatoire sur
+  Vercel, dont le disque est effacé), sinon fichiers `data/` — voir
+  [stockage-rafraichissement.md](stockage-rafraichissement.md).
+- **Via l'URL** : `/api/cron/notify` répond `202` tout de suite et travaille en
+  arrière-plan (`?wait=1` pour attendre le résumé).
 - **Délai** : les alertes arrivent au rythme du cron (15 min conseillé). Ne pas
   descendre plus bas pour ne pas surcharger les portails.
 - **Élargir ses critères** peut déclencher une alerte pour des annonces déjà en

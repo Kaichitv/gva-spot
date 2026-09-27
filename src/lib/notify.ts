@@ -1,8 +1,8 @@
 import webpush, { WebPushError } from "web-push";
-import { defaultBox, fetchAll } from "./sources";
 import { dedupe, type DedupedListing } from "./dedupe";
 import { applyFilters, sortListings } from "./filter";
-import { isFresh, loadSnapshot, markNewAndPersist, saveSnapshot } from "./cache";
+import { isFresh, loadSnapshot } from "./cache";
+import { refreshIfIdle } from "./refresh";
 import { effectiveRent } from "./normalize";
 import {
   addNotified,
@@ -17,8 +17,8 @@ import type { FetchReport, Listing, SearchCriteria } from "./types";
  * Notifier Web Push : détecte les annonces jamais notifiées qui correspondent
  * aux critères de chaque abonnement et envoie UN push récapitulatif par abonné.
  *
- * Détection des nouveautés = ledger dédié `data/notified.json`, indépendant de
- * `data/seen.json` (qui ne sert qu'au badge « Nouveau » de l'UI).
+ * Détection des nouveautés = ledger dédié (clé `notified`), indépendant du
+ * registre `seen` (qui ne sert qu'au badge « Nouveau » de l'UI).
  *
  * Le payload ne contient qu'un résumé + un lien vers l'app : aucune photo,
  * description ni coordonnée d'annonceur n'est transmise.
@@ -150,12 +150,13 @@ async function getListings(): Promise<{
 }> {
   const snap = await loadSnapshot();
   if (snap && isFresh(snap, MIN_FETCH_INTERVAL_MINUTES)) {
-    return { raw: snap.listings, reports: [], dataFrom: "snapshot" };
+    return { raw: snap.listings, reports: snap.reports ?? [], dataFrom: "snapshot" };
   }
-  const { listings, reports } = await fetchAll(defaultBox());
-  const flagged = await markNewAndPersist(listings);
-  await saveSnapshot(flagged);
-  return { raw: flagged, reports, dataFrom: "network" };
+  const fresh = await refreshIfIdle();
+  if (fresh) return { raw: fresh.listings, reports: fresh.reports ?? [], dataFrom: "network" };
+  // Un rafraîchissement tourne déjà ailleurs (recherche en arrière-plan) : on s'en contente.
+  if (snap) return { raw: snap.listings, reports: snap.reports ?? [], dataFrom: "snapshot" };
+  throw new Error("Premier rafraîchissement déjà en cours, réessaie dans quelques minutes.");
 }
 
 /**
@@ -308,7 +309,7 @@ export function formatSummary(s: NotifierSummary): string {
     lines.push(`Mode test : notification factice envoyée à ${s.subscriptions} abonnement(s).`);
     if (s.subscriptions === 0) {
       lines.push(
-        "⚠ Aucun abonnement enregistré (data/subscriptions.json vide) : ouvre l'app, clique sur « Alertes » et accepte la permission, puis relance."
+        "⚠ Aucun abonnement enregistré : ouvre l'app, clique sur « Alertes » et accepte la permission, puis relance."
       );
     }
   } else {

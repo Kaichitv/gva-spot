@@ -23,7 +23,6 @@ interface Props {
   onChange: (next: SearchCriteria) => void;
   loading: boolean;
   total?: number;
-  fetchedAt?: string;
 }
 
 export default function Filters({
@@ -31,7 +30,6 @@ export default function Filters({
   onChange,
   loading,
   total,
-  fetchedAt,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [stuck, setStuck] = useState(false);
@@ -133,7 +131,6 @@ export default function Filters({
         value={value}
         onApply={onChange}
         total={total}
-        fetchedAt={fetchedAt}
       />
     </>
   );

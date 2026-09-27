@@ -128,7 +128,7 @@ d'accueil, iOS 16.4+, en HTTPS.
 
 ### 3. Planifier la vérification
 
-Le premier passage **amorce** le registre (`data/notified.json`) sans rien envoyer ;
+Le premier passage **amorce** le registre des annonces notifiées sans rien envoyer ;
 seules les annonces apparues ensuite déclenchent une notification.
 
 **Crontab** (machine qui héberge l'app, toutes les 15 min) :
@@ -144,14 +144,15 @@ curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://ton-domaine.ch/api/cro
 # ou : curl -fsS "https://ton-domaine.ch/api/cron/notify?token=$CRON_SECRET"
 ```
 
-Vercel Cron envoie automatiquement `Authorization: Bearer $CRON_SECRET`. Reste à
-15 min minimum (politesse envers les portails ; le notifier réutilise de toute façon
-un snapshot de moins de 5 min).
+La route répond `202` tout de suite et travaille en arrière-plan (`?wait=1` pour
+attendre le résumé). Vercel Cron envoie automatiquement `Authorization: Bearer
+$CRON_SECRET` mais, en offre gratuite, une seule fois par jour : préférer
+cron-job.org. Reste à 15 min minimum (politesse envers les portails ; le notifier
+réutilise de toute façon un snapshot de moins de 5 min).
 
-> ⚠️ Les abonnements et le registre sont des fichiers JSON dans `data/` : parfait en
-> auto-hébergé, **éphémère en serverless** (Vercel). Dans ce cas, brancher un KV
-> (Upstash / Vercel KV) dans `src/lib/push-store.ts` (point de swap indiqué en tête
-> du fichier).
+> ⚠️ **Sur Vercel**, renseigner `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` : le
+> disque y est effacé entre deux appels. Sans ces variables, tout est stocké en
+> fichiers dans `data/` (auto-hébergé). Voir `docs/stockage-rafraichissement.md`.
 
 ## Architecture
 
@@ -160,16 +161,18 @@ src/
   app/
     page.tsx              UI (filtres + liste), état persistant en localStorage
     layout.tsx            métadonnées, manifest, enregistrement du SW
-    api/listings/route.ts agrège → dédoublonne → filtre → JSON (+ cache TTL 15 min)
+    api/listings/route.ts lit le snapshot → dédoublonne → filtre → JSON (rafraîchit après la réponse si > 30 min)
     api/push/subscribe/   abonnements push (POST / PATCH / DELETE)
-    api/cron/notify/      déclencheur HTTP du notifier (protégé par CRON_SECRET)
+    api/cron/notify/      rafraîchissement + notifier en arrière-plan (protégé par CRON_SECRET)
   components/             Filters, FilterSheet, ListingCard, PushToggle, RegisterSW
   lib/
     types.ts              modèle Listing commun + contrat SourceAdapter
     normalize.ts          NPA→quartier, parsing nombres, extraits
     dedupe.ts             regroupement des doublons multi-portails
     filter.ts             application des critères + tri
-    cache.ts              registre "annonces vues" + snapshot (data/*.json)
+    cache.ts              registre "annonces vues" + snapshot
+    kv.ts                 stockage clé → JSON : Turso, ou fichiers data/ à défaut
+    refresh.ts            rafraîchissement du snapshot (+ verrou)
     push-store.ts         abonnements push + registre des annonces notifiées
     push-client.ts        helpers Web Push côté navigateur
     notify.ts             détection des nouveautés + envoi des push

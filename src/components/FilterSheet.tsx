@@ -34,15 +34,10 @@ interface Props {
   onApply: (next: SearchCriteria) => void;
   /** Nombre de résultats des critères appliqués (valeur initiale du compteur). */
   total?: number;
-  /** Date du snapshot affiché : l'aperçu n'est demandé que s'il est servi depuis le cache. */
-  fetchedAt?: string;
 }
 
 const RENT_PRESETS = [1500, 2000, 2500, 3000, 3500, 4000];
 const ROOMS = { min: 1, max: 8, step: 0.5 };
-// Légèrement sous le TTL de /api/listings (15 min) : l'aperçu ne doit jamais
-// déclencher un nouvel appel aux portails.
-const PREVIEW_MAX_AGE_MS = 14 * 60_000;
 
 export default function FilterSheet({
   open,
@@ -50,7 +45,6 @@ export default function FilterSheet({
   value,
   onApply,
   total,
-  fetchedAt,
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -91,12 +85,6 @@ export default function FilterSheet({
       setPreviewing(false);
       return;
     }
-    const fresh =
-      !!fetchedAt && Date.now() - Date.parse(fetchedAt) < PREVIEW_MAX_AGE_MS;
-    if (!fresh) {
-      setPreview(null);
-      return;
-    }
     const ctrl = new AbortController();
     setPreviewing(true);
     const t = setTimeout(async () => {
@@ -115,7 +103,7 @@ export default function FilterSheet({
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [open, draft, value, total, fetchedAt]);
+  }, [open, draft, value, total]);
 
   // Glisser vers le bas pour fermer (tactile, sur la poignée / l'en-tête).
   const drag = useRef<{ y: number; dy: number } | null>(null);

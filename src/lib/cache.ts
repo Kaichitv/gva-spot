@@ -1,44 +1,31 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import { DATA_DIR } from "./data-dir";
-import type { Listing } from "./types";
+import { kvGet, kvSet } from "./kv";
+import type { FetchReport, Listing } from "./types";
 
 /**
- * Cache disque très simple (JSON) pour deux usages :
+ * Cache très simple (JSON, via kv.ts) pour deux usages :
  *  1) mémoriser la date de première apparition d'une annonce (badge "nouveau") ;
- *  2) éviter de re-solliciter les sources trop souvent (TTL court).
+ *  2) garder le dernier résultat des sources (snapshot) pour servir les
+ *     recherches sans re-solliciter les portails.
  *
- * Suffisant pour un usage perso mono-utilisateur. Pas de base de données.
+ * Suffisant pour un usage perso mono-utilisateur. Pas de base relationnelle.
  */
-const SEEN_FILE = path.join(DATA_DIR, "seen.json");
-const SNAPSHOT_FILE = path.join(DATA_DIR, "snapshot.json");
+
+const SEEN_KEY = "seen";
+const SNAPSHOT_KEY = "snapshot";
 
 interface SeenMap {
   [listingId: string]: string; // id -> ISO firstSeenAt
 }
 
-interface Snapshot {
+export interface Snapshot {
   fetchedAt: string;
   listings: Listing[];
-}
-
-async function ensureDir() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-}
-
-async function readJson<T>(file: string, fallback: T): Promise<T> {
-  try {
-    const raw = await fs.readFile(file, "utf8");
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
+  reports?: FetchReport[];
 }
 
 /** Marque les annonces nouvelles, met à jour le registre des annonces vues. */
 export async function markNewAndPersist(listings: Listing[]): Promise<Listing[]> {
-  await ensureDir();
-  const seen = await readJson<SeenMap>(SEEN_FILE, {});
+  const seen = await kvGet<SeenMap>(SEEN_KEY, {});
   const now = new Date().toISOString();
 
   const result = listings.map((l) => {
@@ -50,18 +37,21 @@ export async function markNewAndPersist(listings: Listing[]): Promise<Listing[]>
     return { ...l, firstSeenAt: now, isNew: true };
   });
 
-  await fs.writeFile(SEEN_FILE, JSON.stringify(seen, null, 2), "utf8");
+  await kvSet(SEEN_KEY, seen);
   return result;
 }
 
-export async function saveSnapshot(listings: Listing[]): Promise<void> {
-  await ensureDir();
-  const snap: Snapshot = { fetchedAt: new Date().toISOString(), listings };
-  await fs.writeFile(SNAPSHOT_FILE, JSON.stringify(snap, null, 2), "utf8");
+export async function saveSnapshot(
+  listings: Listing[],
+  reports: FetchReport[] = []
+): Promise<Snapshot> {
+  const snap: Snapshot = { fetchedAt: new Date().toISOString(), listings, reports };
+  await kvSet(SNAPSHOT_KEY, snap);
+  return snap;
 }
 
 export async function loadSnapshot(): Promise<Snapshot | null> {
-  return readJson<Snapshot | null>(SNAPSHOT_FILE, null);
+  return kvGet<Snapshot | null>(SNAPSHOT_KEY, null);
 }
 
 /** Le snapshot est-il encore frais ? (TTL en minutes) */

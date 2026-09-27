@@ -1,8 +1,6 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import * as cheerio from "cheerio";
 import type { BoundingBox, Listing, SourceAdapter } from "../types";
-import { DATA_DIR } from "../data-dir";
+import { kvGet, kvSet } from "../kv";
 import { extractZip, neighborhoodFromZip } from "../normalize";
 
 /**
@@ -42,7 +40,7 @@ const PAGE_DELAY_MS = 1000; // politesse entre deux pages
 const GEO_API =
   "https://api3.geo.admin.ch/rest/services/api/MapServer/identify";
 const GEO_CONCURRENCY = 4;
-const GEO_CACHE_FILE = path.join(DATA_DIR, "geo-zip.json");
+const GEO_CACHE_KEY = "geo-zip";
 
 const HEADERS: Record<string, string> = {
   Accept: "text/html,application/xhtml+xml",
@@ -191,12 +189,8 @@ async function fetchPage(search: string, page: number, query = ""): Promise<stri
 
 const geoKey = (lat: number, lng: number) => `${lat.toFixed(5)},${lng.toFixed(5)}`;
 
-async function readGeoCache(): Promise<Record<string, string | null>> {
-  try {
-    return JSON.parse(await fs.readFile(GEO_CACHE_FILE, "utf8"));
-  } catch {
-    return {};
-  }
+function readGeoCache(): Promise<Record<string, string | null>> {
+  return kvGet<Record<string, string | null>>(GEO_CACHE_KEY, {}).catch(() => ({}));
 }
 
 async function zipFromCoords(lat: number, lng: number): Promise<string | null> {
@@ -241,8 +235,8 @@ async function fillMissingZips(cards: Card[]): Promise<void> {
   }
 
   if (changed) {
-    await fs.mkdir(path.dirname(GEO_CACHE_FILE), { recursive: true });
-    await fs.writeFile(GEO_CACHE_FILE, JSON.stringify(cache), "utf8");
+    // Cache facultatif : une panne de stockage ne doit pas faire échouer la source.
+    await kvSet(GEO_CACHE_KEY, cache).catch(() => {});
   }
 
   for (const c of todo) {

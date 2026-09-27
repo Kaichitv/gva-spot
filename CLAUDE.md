@@ -33,7 +33,7 @@ portails, mais le contact se fait toujours sur l'annonce d'origine.
   (⚠️ pas de `tailwind.config.js`). PostCSS : `@tailwindcss/postcss`.
 - **Phosphor** (`@phosphor-icons/react`) pour les icônes.
 - **web-push** pour les notifications (Web Push / VAPID).
-- Cache disque JSON (`data/`), pas de base de données.
+- Stockage clé → JSON : **Turso** (libSQL, `@libsql/client/web`) en prod, fichiers `data/` à défaut. Pas de base relationnelle.
 - **Node 20+**.
 
 ## Commandes
@@ -57,9 +57,9 @@ src/
     layout.tsx              métadonnées, PWA, fond de page, enregistrement du SW
     page.tsx                UI principale (client) : état + fetch + localStorage
     globals.css             Tailwind v4 + tokens du design system + @layer
-    api/listings/route.ts   agrège → dédoublonne → filtre → JSON (cache TTL 15 min)
+    api/listings/route.ts   lit le snapshot → dédoublonne → filtre → JSON (jamais les portails, sauf 1er lancement)
     api/push/subscribe/route.ts   abonnements push : POST / PATCH (critères) / DELETE
-    api/cron/notify/route.ts      déclencheur HTTP du notifier (CRON_SECRET)
+    api/cron/notify/route.ts      rafraîchissement + notifier via after() (CRON_SECRET, 202 immédiat)
   components/
     Filters.tsx             barre de recherche collante + bascules rapides (client)
     FilterSheet.tsx         panneau « Filtres » : bottom sheet mobile / modale (client)
@@ -74,7 +74,9 @@ src/
     criteria-ui.ts          helpers UI des critères (query string, résumé, compteur)
     cache.ts                registre "annonces vues" (badge Nouveau) + snapshot
     data-dir.ts             dossier des JSON : data/ en local, /tmp sur Vercel (lecture seule)
-    push-store.ts           data/subscriptions.json + ledger data/notified.json
+    kv.ts                   stockage clé → JSON : Turso si TURSO_DATABASE_URL, sinon fichiers
+    refresh.ts              refreshSnapshot / refreshIfIdle (verrou refresh-lock)
+    push-store.ts           abonnements push + ledger des notifiés (via kv.ts)
     push-client.ts          helpers navigateur (clé VAPID, souscription, sync critères)
     notify.ts               runNotifier() : nouveautés par abonné → Web Push
     sources/
@@ -93,19 +95,23 @@ data/                       cache local (git-ignoré) ; geo-zip.json = cache NPA
 docs/                       une fiche par fonctionnalité (voir « Documentation »)
 ```
 
-**Flux de données** : `page.tsx` → `GET /api/listings?<critères>` → `fetchAll()`
-(sources activées, en parallèle) → `markNewAndPersist` (cache) → `dedupe` →
-`applyFilters` + `sortListings` → JSON → rendu des `ListingCard`.
+**Flux de données** : cron-job.org → `GET /api/cron/notify` → (après réponse)
+`refreshIfIdle()` : `fetchAll()` → `markNewAndPersist` → `saveSnapshot` (Turso).
+`page.tsx` → `GET /api/listings?<critères>` → `loadSnapshot` → `dedupe` →
+`applyFilters` + `sortListings` → JSON. Snapshot > 30 min ou `?refresh=1` :
+réponse immédiate + `after(refreshIfIdle)` + `refreshing: true` (la page
+recharge silencieusement toutes les 15 s). Détails :
+`docs/stockage-rafraichissement.md`.
 
 **Flux notifications** : `PushToggle` → `POST /api/push/subscribe` (souscription
 + critères du localStorage) ; `page.tsx` resynchronise via `PATCH` (débouncé)
 quand les critères changent. `npm run notify` ou `GET /api/cron/notify` →
 `runNotifier()` : snapshot < 5 min sinon `fetchAll()` (+ seen/snapshot comme
 `refresh`) → `dedupe` → par abonnement `applyFilters` (sans `onlyNew`) → ids ∉
-`data/notified.json` → 1 push récapitulatif → ids poussés ajoutés au ledger ;
+le ledger `notified` → 1 push récapitulatif → ids poussés ajoutés au ledger ;
 404/410 ⇒ abonnement supprimé. Premier passage = amorçage silencieux du ledger
 (reporté si une source est en panne). Le ledger est **indépendant** de
-`seen.json` : ne pas les coupler. `public/sw.js` affiche la notif et, au clic,
+`seen` : ne pas les coupler. `public/sw.js` affiche la notif et, au clic,
 focalise/ouvre l'app. Détails : `docs/notifications-push.md`.
 
 Ajouter une source = créer un `SourceAdapter` dans `src/lib/sources/` et
@@ -117,11 +123,12 @@ adaptateur renvoie tout ce que la source expose, sans filtrer.
 Tout se règle dans `.env` (voir `.env.example`) : `SOURCE_*` (on/off),
 `APIFY_TOKEN` + `APIFY_ACTOR_*`, bounding box `GE_*`, et pour les notifications
 `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`,
-`NEXT_PUBLIC_VAPID_PUBLIC_KEY` (= clé publique, seule exposée au client) et
-`CRON_SECRET`. Clés : `npx web-push generate-vapid-keys` (une seule fois).
+`NEXT_PUBLIC_VAPID_PUBLIC_KEY` (= clé publique, seule exposée au client),
+`CRON_SECRET`, et le stockage `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`. Clés : `npx web-push generate-vapid-keys` (une seule fois).
 
-**⚠️ Stockage push** : `data/*.json` est éphémère en serverless ; point de swap
-vers un KV en tête de `src/lib/push-store.ts`.
+**Stockage** : tout passe par `src/lib/kv.ts` (Turso en prod, obligatoire sur
+Vercel dont le disque est effacé ; fichiers `data/` sans Turso). Le `.env`
+local pointe sur la même base que la prod.
 
 **⚠️ API Flatfox** : Flatfox n'a pas d'API officielle documentée ; on utilise
 les endpoints que la carte du site interroge, en deux temps : `/api/v1/pin/`

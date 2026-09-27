@@ -41,9 +41,9 @@ recherche compacte en haut, et un panneau de filtres complet à la demande.
 
 ## Réglages et limites
 
-- Le compteur en direct appelle `/api/listings` (débouncé 350 ms) **seulement si
-  le snapshot affiché a moins de 14 min** : il est alors servi depuis le cache et
-  ne sollicite jamais les portails. Sinon le bouton affiche « Afficher les annonces ».
+- Le compteur en direct appelle `/api/listings` (débouncé 350 ms). Cette route
+  ne lit que le snapshot enregistré : elle ne sollicite jamais les portails
+  pendant la requête (voir [stockage-rafraichissement.md](stockage-rafraichissement.md)).
 - Préréglages de budget : `RENT_PRESETS` ; bornes des pièces : `ROOMS`
   (en tête de `FilterSheet.tsx`).
 - Champs en 16 px minimum : évite le zoom automatique d'iOS au focus.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { DedupedListing } from "@/lib/dedupe";
 import type { FetchReport, SearchCriteria } from "@/lib/types";
 import Filters from "@/components/Filters";
@@ -12,6 +12,8 @@ import { ArrowClockwise, CaretDown } from "@phosphor-icons/react";
 
 interface ApiResponse {
   fetchedAt: string;
+  /** Mise à jour des sources en cours côté serveur : revenir chercher plus tard. */
+  refreshing?: boolean;
   total: number;
   totalBeforeFilters: number;
   reports: FetchReport[];
@@ -19,6 +21,9 @@ interface ApiResponse {
 }
 
 const STORAGE_KEY = CRITERIA_STORAGE_KEY;
+const POLL_MS = 15_000;
+// ~5 min : au-delà, le rafraîchissement a sans doute échoué, on arrête d'insister.
+const MAX_POLLS = 20;
 
 export default function Page() {
   const [criteria, setCriteria] = useState<SearchCriteria>({});
@@ -26,6 +31,7 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const polls = useRef(0);
 
   useEffect(() => {
     try {
@@ -35,8 +41,11 @@ export default function Page() {
     setHydrated(true);
   }, []);
 
-  const run = useCallback(async (c: SearchCriteria, refresh = false) => {
-    setLoading(true);
+  const run = useCallback(async (c: SearchCriteria, refresh = false, silent = false) => {
+    if (!silent) {
+      polls.current = 0;
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await fetch(`/api/listings?${buildParams(c, refresh)}`);
@@ -53,6 +62,18 @@ export default function Page() {
     if (hydrated) run(criteria);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated]);
+
+  // Sources en cours de mise à jour : on recharge discrètement jusqu'à la nouvelle version.
+  useEffect(() => {
+    if (!data?.refreshing || polls.current >= MAX_POLLS) return;
+    const t = setTimeout(() => {
+      polls.current++;
+      run(criteria, false, true);
+    }, POLL_MS);
+    return () => clearTimeout(t);
+  }, [data, criteria, run]);
+
+  const updating = loading || (!!data?.refreshing && polls.current < MAX_POLLS);
 
   const persist = (c: SearchCriteria) => {
     setCriteria(c);
@@ -84,15 +105,19 @@ export default function Page() {
           <button
             type="button"
             onClick={() => run(criteria, true)}
-            disabled={loading}
-            title="Ré-interroger les portails (ignore le cache)"
+            disabled={updating}
+            title={
+              data?.refreshing
+                ? "Mise à jour des annonces en cours…"
+                : "Mettre à jour les annonces (en arrière-plan)"
+            }
             aria-label={`Actualiser — dernière mise à jour ${fetchedLabel}`}
             className="chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] text-muted transition-colors duration-150 hover:text-ink disabled:opacity-60"
           >
             <ArrowClockwise
               size={13}
               weight="bold"
-              className={loading ? "animate-spin" : ""}
+              className={updating ? "animate-spin" : ""}
             />
             <span className="tabular-nums">{fetchedLabel}</span>
           </button>
@@ -104,7 +129,6 @@ export default function Page() {
         onChange={apply}
         loading={loading}
         total={data?.total}
-        fetchedAt={data?.fetchedAt}
       />
 
       {error && (
