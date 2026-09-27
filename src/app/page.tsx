@@ -7,7 +7,8 @@ import Filters from "@/components/Filters";
 import ListingCard from "@/components/ListingCard";
 import PushToggle from "@/components/PushToggle";
 import { CRITERIA_STORAGE_KEY, syncPushCriteria } from "@/lib/push-client";
-import { House, Clock, CaretDown } from "@phosphor-icons/react";
+import { buildParams, countActive } from "@/lib/criteria-ui";
+import { ArrowClockwise, CaretDown } from "@phosphor-icons/react";
 
 interface ApiResponse {
   fetchedAt: string;
@@ -18,22 +19,6 @@ interface ApiResponse {
 }
 
 const STORAGE_KEY = CRITERIA_STORAGE_KEY;
-
-function buildParams(c: SearchCriteria, refresh: boolean): string {
-  const p = new URLSearchParams();
-  if (c.minRooms != null) p.set("minRooms", String(c.minRooms));
-  if (c.maxRooms != null) p.set("maxRooms", String(c.maxRooms));
-  if (c.minSurface != null) p.set("minSurface", String(c.minSurface));
-  if (c.maxRent != null) p.set("maxRent", String(c.maxRent));
-  if (c.minRent != null) p.set("minRent", String(c.minRent));
-  if (c.furnished != null) p.set("furnished", String(c.furnished));
-  if (c.onlyNew) p.set("onlyNew", "true");
-  if (c.neighborhoods?.length) p.set("neighborhoods", c.neighborhoods.join(","));
-  if (c.zips?.length) p.set("zips", c.zips.join(","));
-  if (c.query) p.set("query", c.query);
-  if (refresh) p.set("refresh", "1");
-  return p.toString();
-}
 
 export default function Page() {
   const [criteria, setCriteria] = useState<SearchCriteria>({});
@@ -78,61 +63,59 @@ export default function Page() {
     syncPushCriteria(c);
   };
 
-  const fetchedLabel = data
-    ? new Date(data.fetchedAt).toLocaleString("fr-CH", {
-        dateStyle: "short",
-        timeStyle: "short",
-      })
-    : "—";
+  // Critères appliqués immédiatement : persistance + recherche.
+  const apply = (c: SearchCriteria) => {
+    persist(c);
+    run(c);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const fetchedLabel = data ? formatFetchedAt(data.fetchedAt) : "—";
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-3xl px-4 pb-28 pt-6 sm:px-6">
       {/* En-tête */}
-      <header className="mb-5 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div>
-            <h1 className="text-[22px] font-bold leading-none tracking-tight">
-              Rechercher
-            </h1>
-          </div>
-        </div>
+      <header className="mb-3 flex items-center justify-between gap-3">
+        <h1 className="text-[22px] font-bold leading-none tracking-tight">
+          Rechercher
+        </h1>
         <div className="flex items-center gap-2">
           <PushToggle />
-          <span className="chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] text-muted">
-            <Clock size={13} weight="bold" />
-            {fetchedLabel}
-          </span>
+          <button
+            type="button"
+            onClick={() => run(criteria, true)}
+            disabled={loading}
+            title="Ré-interroger les portails (ignore le cache)"
+            aria-label={`Actualiser — dernière mise à jour ${fetchedLabel}`}
+            className="chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] text-muted transition-colors duration-150 hover:text-ink disabled:opacity-60"
+          >
+            <ArrowClockwise
+              size={13}
+              weight="bold"
+              className={loading ? "animate-spin" : ""}
+            />
+            <span className="tabular-nums">{fetchedLabel}</span>
+          </button>
         </div>
       </header>
 
       <Filters
         value={criteria}
-        onChange={persist}
-        onSearch={() => run(criteria)}
-        onRefresh={() => run(criteria, true)}
+        onChange={apply}
         loading={loading}
+        total={data?.total}
+        fetchedAt={data?.fetchedAt}
       />
 
-      {/* Compteur */}
-      {data && !loading && (
-        <p className="mt-4 px-1 text-[13px] text-muted">
-          <span className="font-semibold text-ink">
-            {data.total}
-          </span>{" "}
-          annonce{data.total > 1 ? "s" : ""} · {data.totalBeforeFilters} après
-          dédoublonnage
-        </p>
-      )}
-
       {error && (
-        <div role="alert" className="card mt-4 p-4 text-[14px] text-danger">
+        <div role="alert" className="card mt-1 mb-3 p-4 text-[14px] text-danger">
           ⚠️ {error}
         </div>
       )}
 
       {/* Skeletons de chargement */}
       {loading && (
-        <div className="mt-4 flex flex-col gap-3">
+        <div className="mt-1 flex flex-col gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
@@ -144,15 +127,27 @@ export default function Page() {
 
       {/* Liste */}
       {!loading && data && (
-        <div className="mt-4 flex flex-col gap-3">
+        <div className="mt-1 flex flex-col gap-3">
           {data.listings.map((l) => (
             <ListingCard key={l.id} l={l} />
           ))}
           {data.listings.length === 0 && (
-            <div className="card p-10 text-center text-[14px] text-muted">
-              Aucune annonce ne correspond.
-              <br />
-              Élargis les critères ou clique sur « Actualiser ».
+            <div className="card flex flex-col items-center gap-4 px-6 py-10 text-center">
+              <div>
+                <p className="text-[16px] font-semibold">Aucune annonce</p>
+                <p className="mt-1 text-[14px] text-muted">
+                  Essaie d&apos;élargir le budget, les pièces ou les quartiers.
+                </p>
+              </div>
+              {countActive(criteria) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => apply({})}
+                  className="chip rounded-full px-4 py-2.5 text-[14px] font-semibold"
+                >
+                  Effacer les filtres
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -167,7 +162,8 @@ export default function Page() {
               weight="bold"
               className="transition-transform duration-200 group-open:rotate-180"
             />
-            Sources ({data.reports.length})
+            Sources ({data.reports.length}) · {data.totalBeforeFilters} annonces
+            après dédoublonnage
           </summary>
           <ul className="mt-2 space-y-1 px-1 text-[12px] text-muted">
             {data.reports.map((r) => (
@@ -194,4 +190,12 @@ export default function Page() {
       </p>
     </main>
   );
+}
+
+/** Heure seule si c'est aujourd'hui, sinon date courte + heure. */
+function formatFetchedAt(iso: string): string {
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString("fr-CH", { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === new Date().toDateString()) return time;
+  return `${d.toLocaleDateString("fr-CH", { day: "2-digit", month: "2-digit" })} ${time}`;
 }

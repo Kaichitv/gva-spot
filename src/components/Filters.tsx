@@ -1,221 +1,145 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { SearchCriteria } from "@/lib/types";
-import { ZIP_TO_NEIGHBORHOOD } from "@/lib/normalize";
+import { countActive, whatLabel, whereLabel } from "@/lib/criteria-ui";
+import FilterSheet from "@/components/FilterSheet";
 import {
-  MagnifyingGlass,
-  ArrowClockwise,
-  MapPin,
-  Sparkle,
   Armchair,
-  X,
-  CaretDown,
+  MagnifyingGlass,
+  SlidersHorizontal,
+  Sparkle,
 } from "@phosphor-icons/react";
+
+/**
+ * Barre de recherche collante (mobile first, inspirée d'Airbnb) :
+ * - une « pilule » qui résume la recherche et ouvre le panneau de filtres ;
+ * - une rangée de bascules rapides (appliquées immédiatement) + le compteur.
+ */
 
 interface Props {
   value: SearchCriteria;
+  /** Applique immédiatement les critères (persistance + recherche). */
   onChange: (next: SearchCriteria) => void;
-  onSearch: () => void;
-  onRefresh: () => void;
   loading: boolean;
+  total?: number;
+  fetchedAt?: string;
 }
-
-const NEIGHBORHOODS = Array.from(
-  new Set(Object.values(ZIP_TO_NEIGHBORHOOD))
-).sort();
-
-const fieldCls = "field w-full appearance-none px-3 py-2.5 text-[15px]";
-const labelCls =
-  "text-[11px] font-semibold uppercase tracking-wide text-muted";
 
 export default function Filters({
   value,
   onChange,
-  onSearch,
-  onRefresh,
   loading,
+  total,
+  fetchedAt,
 }: Props) {
-  const set = <K extends keyof SearchCriteria>(k: K, v: SearchCriteria[K]) =>
-    onChange({ ...value, [k]: v });
-  const numOrUndef = (s: string) => (s === "" ? undefined : Number(s));
+  const [open, setOpen] = useState(false);
+  const [stuck, setStuck] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const toggle = (k: "onlyNew" | "furnished") => {
-    const active = k === "furnished" ? value.furnished === true : !!value[k];
-    set(k, active ? undefined : (true as never));
-  };
+  // Ombre sous la barre uniquement quand elle colle en haut de l'écran.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const active = countActive(value);
+  const what = whatLabel(value);
+  const where = whereLabel(value);
 
   return (
-    <form
-      className="card p-4 sm:p-5"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSearch();
-      }}
-    >
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="flex flex-col gap-1.5">
-          <label className={labelCls}>Pièces min</label>
-          <input
-            type="number"
-            step="0.5"
-            min="1"
-            inputMode="decimal"
-            className={fieldCls}
-            value={value.minRooms ?? ""}
-            onChange={(e) => set("minRooms", numOrUndef(e.target.value))}
-            placeholder="3"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className={labelCls}>Pièces max</label>
-          <input
-            type="number"
-            step="0.5"
-            min="1"
-            inputMode="decimal"
-            className={fieldCls}
-            value={value.maxRooms ?? ""}
-            onChange={(e) => set("maxRooms", numOrUndef(e.target.value))}
-            placeholder="5"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className={labelCls}>Surface min · m²</label>
-          <input
-            type="number"
-            min="0"
-            inputMode="numeric"
-            className={fieldCls}
-            value={value.minSurface ?? ""}
-            onChange={(e) => set("minSurface", numOrUndef(e.target.value))}
-            placeholder="60"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className={labelCls}>Loyer max · CHF</label>
-          <input
-            type="number"
-            min="0"
-            inputMode="numeric"
-            className={fieldCls}
-            value={value.maxRent ?? ""}
-            onChange={(e) => set("maxRent", numOrUndef(e.target.value))}
-            placeholder="2500"
-          />
-        </div>
-      </div>
-
-      {/* Quartiers */}
-      <div className="mt-3 flex flex-col gap-1.5">
-        <label className={labelCls}>
-          <MapPin size={12} weight="fill" className="mr-1 inline align-[-1px]" />
-          Quartiers · communes
-        </label>
-        <div className="relative">
-          <select
-            className={fieldCls + " pr-9"}
-            value=""
-            onChange={(e) => {
-              const v = e.target.value;
-              if (!v) return;
-              const cur = value.neighborhoods ?? [];
-              if (!cur.includes(v)) set("neighborhoods", [...cur, v]);
-            }}
-          >
-            <option value="">Ajouter un quartier…</option>
-            {NEIGHBORHOODS.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-          <CaretDown
-            size={14}
-            weight="bold"
-            aria-hidden
-            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted"
-          />
-        </div>
-        {!!value.neighborhoods?.length && (
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {value.neighborhoods.map((n) => (
-              <button
-                type="button"
-                key={n}
-                aria-label={`Retirer ${n}`}
-                className="chip inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[13px] font-medium"
-                onClick={() =>
-                  set(
-                    "neighborhoods",
-                    value.neighborhoods!.filter((x) => x !== n)
-                  )
-                }
-              >
-                {n}
-                <X size={12} weight="bold" className="text-muted" />
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Recherche plein texte */}
-      <div className="mt-3 flex flex-col gap-1.5">
-        <label className={labelCls}>Mot-clé</label>
-        <input
-          type="text"
-          className={fieldCls}
-          value={value.query ?? ""}
-          onChange={(e) => set("query", e.target.value || undefined)}
-          placeholder="balcon, traversant, meublé…"
-        />
-      </div>
-
-      {/* Actions */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          type="submit"
-          disabled={loading}
-          className="btn-primary inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[15px] font-semibold disabled:opacity-60"
-        >
-          <MagnifyingGlass size={17} weight="bold" />
-          {loading ? "Recherche…" : "Filtrer"}
-        </button>
+    <>
+      <div ref={sentinelRef} aria-hidden className="h-px" />
+      <div
+        className={
+          "sticky top-0 z-30 -mx-4 bg-canvas px-4 pb-3 transition-shadow duration-200 sm:-mx-6 sm:px-6 " +
+          (stuck ? "shadow-[0_1px_0_var(--border),var(--shadow-md)]" : "")
+        }
+        style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
+      >
+        {/* Pilule de recherche */}
         <button
           type="button"
-          onClick={onRefresh}
-          disabled={loading}
-          title="Re-interroger les portails (ignore le cache)"
-          className="chip inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[15px] font-medium disabled:opacity-60"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          aria-label={`Modifier la recherche : ${where}${what ? `, ${what}` : ""}${active ? `, ${active} filtre${active > 1 ? "s" : ""} actif${active > 1 ? "s" : ""}` : ""}`}
+          className="card flex w-full items-center gap-3 rounded-full py-2 pl-4 pr-2 text-left transition-[border-color,box-shadow] duration-150 hover:border-(--border-strong) hover:shadow-(--shadow-lg)"
         >
-          <ArrowClockwise
-            size={17}
-            weight="bold"
-            className={loading ? "animate-spin" : ""}
-          />
-          Actualiser
+          <MagnifyingGlass size={20} weight="bold" className="shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1" aria-hidden>
+            <span className="block truncate text-[15px] font-semibold leading-5">
+              {where}
+            </span>
+            <span className="block truncate text-[13px] leading-5 text-muted">
+              {what ?? "Budget · pièces · surface"}
+            </span>
+          </span>
+          <span
+            aria-hidden
+            className={
+              "relative grid size-10 shrink-0 place-items-center rounded-full border " +
+              (active ? "border-ink" : "border-line bg-surface-2")
+            }
+          >
+            <SlidersHorizontal size={18} weight="bold" />
+            {active > 0 && (
+              <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1 text-[11px] font-bold text-accent-ink ring-2 ring-surface-1">
+                {active}
+              </span>
+            )}
+          </span>
         </button>
 
-        <div className="ml-auto flex items-center gap-2">
-          <SegToggle
-            active={!!value.onlyNew}
-            onClick={() => toggle("onlyNew")}
-            icon={<Sparkle size={15} weight="fill" />}
-            label="Nouveautés"
-          />
-          <SegToggle
-            active={value.furnished === true}
-            onClick={() => toggle("furnished")}
-            icon={<Armchair size={15} weight="fill" />}
-            label="Meublé"
-          />
+        {/* Bascules rapides + compteur (une seule ligne, jamais de retour) */}
+        <div className="mt-3 flex items-center gap-2">
+          <div className="no-scrollbar -my-1 flex min-w-0 flex-1 gap-2 overflow-x-auto py-1">
+            <QuickToggle
+              active={!!value.onlyNew}
+              onClick={() => onChange({ ...value, onlyNew: value.onlyNew ? undefined : true })}
+              icon={<Sparkle size={15} weight="fill" />}
+              label="Nouveautés"
+            />
+            <QuickToggle
+              active={value.furnished === true}
+              onClick={() =>
+                onChange({ ...value, furnished: value.furnished ? undefined : true })
+              }
+              icon={<Armchair size={15} weight="fill" />}
+              label="Meublé"
+            />
+          </div>
+          <p
+            aria-live="polite"
+            className="shrink-0 whitespace-nowrap text-[13px] text-muted"
+          >
+            {loading ? (
+              "Recherche…"
+            ) : total != null ? (
+              <>
+                <span className="font-semibold text-ink tabular-nums">{total}</span>{" "}
+                annonce{total > 1 ? "s" : ""}
+              </>
+            ) : null}
+          </p>
         </div>
       </div>
-    </form>
+
+      <FilterSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        value={value}
+        onApply={onChange}
+        total={total}
+        fetchedAt={fetchedAt}
+      />
+    </>
   );
 }
 
-function SegToggle({
+function QuickToggle({
   active,
   onClick,
   icon,
@@ -232,10 +156,10 @@ function SegToggle({
       onClick={onClick}
       aria-pressed={active}
       className={
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-[13px] font-medium transition-colors duration-150 " +
+        "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-medium transition-colors duration-150 " +
         (active
-          ? "border-transparent bg-accent text-accent-ink shadow-[var(--shadow-sm)] hover:bg-accent-hover"
-          : "border-line bg-surface-2 text-muted hover:text-ink")
+          ? "border-transparent bg-accent text-accent-ink shadow-(--shadow-sm) hover:bg-accent-hover"
+          : "border-line bg-surface-1 text-ink hover:border-(--border-strong)")
       }
     >
       {icon}

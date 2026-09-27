@@ -61,7 +61,8 @@ src/
     api/push/subscribe/route.ts   abonnements push : POST / PATCH (critères) / DELETE
     api/cron/notify/route.ts      déclencheur HTTP du notifier (CRON_SECRET)
   components/
-    Filters.tsx             panneau de critères (client)
+    Filters.tsx             barre de recherche collante + bascules rapides (client)
+    FilterSheet.tsx         panneau « Filtres » : bottom sheet mobile / modale (client)
     ListingCard.tsx         carte d'annonce (client)
     PushToggle.tsx          bouton « Alertes » : permission + (dés)abonnement (client)
     RegisterSW.tsx          enregistre le service worker
@@ -70,6 +71,7 @@ src/
     normalize.ts            NPA→quartier, parsing nombres, extraits, loyer effectif
     dedupe.ts               regroupement des doublons multi-portails
     filter.ts               application des critères + tri + parsing query params
+    criteria-ui.ts          helpers UI des critères (query string, résumé, compteur)
     cache.ts                registre "annonces vues" (badge Nouveau) + snapshot
     push-store.ts           data/subscriptions.json + ledger data/notified.json
     push-client.ts          helpers navigateur (clé VAPID, souscription, sync critères)

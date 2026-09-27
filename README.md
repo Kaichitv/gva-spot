@@ -163,7 +163,7 @@ src/
     api/listings/route.ts agrège → dédoublonne → filtre → JSON (+ cache TTL 15 min)
     api/push/subscribe/   abonnements push (POST / PATCH / DELETE)
     api/cron/notify/      déclencheur HTTP du notifier (protégé par CRON_SECRET)
-  components/             Filters, ListingCard, PushToggle, RegisterSW
+  components/             Filters, FilterSheet, ListingCard, PushToggle, RegisterSW
   lib/
     types.ts              modèle Listing commun + contrat SourceAdapter
     normalize.ts          NPA→quartier, parsing nombres, extraits
