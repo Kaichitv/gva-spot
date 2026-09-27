@@ -180,6 +180,7 @@ src/
       homegate.ts immoscout.ts anibis.ts   ⚙️ via Apify
 scripts/refresh.ts        CLI de rafraîchissement du cache
 scripts/notify.ts         CLI du notifier (`npm run notify`, `-- --test`)
+scripts/generate-icons.mjs  régénère les icônes d'app (`node scripts/generate-icons.mjs`)
 public/                   manifest, service worker (cache + push), icônes
 docs/                     une fiche par fonctionnalité
 data/                     cache local (git-ignoré)

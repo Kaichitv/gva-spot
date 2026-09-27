@@ -83,6 +83,7 @@ src/
 scripts/refresh.ts          CLI de rafraîchissement du cache
 scripts/notify.ts           CLI du notifier (même loader .env : scripts/load-env.ts)
 scripts/generate-badge.mjs  régénère public/icons/badge-72.png (sharp)
+scripts/generate-icons.mjs  régénère icônes PWA/iOS + favicon (sharp, voir docs/icones-app.md)
 public/                     manifest.webmanifest, sw.js (cache + push), icônes
 data/                       cache local (git-ignoré)
 docs/                       une fiche par fonctionnalité (voir « Documentation »)
