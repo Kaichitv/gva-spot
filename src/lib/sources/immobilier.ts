@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import * as cheerio from "cheerio";
 import type { BoundingBox, Listing, SourceAdapter } from "../types";
+import { DATA_DIR } from "../data-dir";
 import { extractZip, neighborhoodFromZip } from "../normalize";
 
 /**
@@ -41,7 +42,7 @@ const PAGE_DELAY_MS = 1000; // politesse entre deux pages
 const GEO_API =
   "https://api3.geo.admin.ch/rest/services/api/MapServer/identify";
 const GEO_CONCURRENCY = 4;
-const GEO_CACHE_FILE = path.join(process.cwd(), "data", "geo-zip.json");
+const GEO_CACHE_FILE = path.join(DATA_DIR, "geo-zip.json");
 
 const HEADERS: Record<string, string> = {
   Accept: "text/html,application/xhtml+xml",

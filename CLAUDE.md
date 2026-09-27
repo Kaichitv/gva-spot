@@ -73,6 +73,7 @@ src/
     filter.ts               application des critères + tri + parsing query params
     criteria-ui.ts          helpers UI des critères (query string, résumé, compteur)
     cache.ts                registre "annonces vues" (badge Nouveau) + snapshot
+    data-dir.ts             dossier des JSON : data/ en local, /tmp sur Vercel (lecture seule)
     push-store.ts           data/subscriptions.json + ledger data/notified.json
     push-client.ts          helpers navigateur (clé VAPID, souscription, sync critères)
     notify.ts               runNotifier() : nouveautés par abonné → Web Push

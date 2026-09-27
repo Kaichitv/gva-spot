@@ -19,12 +19,18 @@ export function enabledSources(): SourceAdapter[] {
   return ALL_SOURCES.filter((s) => s.enabled);
 }
 
+// Une variable vide ou invalide retombe sur la valeur par défaut (sinon Number("") = 0).
+function envCoord(name: string, fallback: number): number {
+  const v = Number.parseFloat(process.env[name] ?? "");
+  return Number.isFinite(v) ? v : fallback;
+}
+
 export function defaultBox(): BoundingBox {
   return {
-    north: Number(process.env.GE_NORTH ?? 46.35),
-    south: Number(process.env.GE_SOUTH ?? 46.12),
-    east: Number(process.env.GE_EAST ?? 6.32),
-    west: Number(process.env.GE_WEST ?? 5.95),
+    north: envCoord("GE_NORTH", 46.35),
+    south: envCoord("GE_SOUTH", 46.12),
+    east: envCoord("GE_EAST", 6.32),
+    west: envCoord("GE_WEST", 5.95),
   };
 }
 

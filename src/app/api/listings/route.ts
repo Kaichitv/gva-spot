@@ -13,6 +13,10 @@ import type { FetchReport, Listing } from "@/lib/types";
 // Toujours dynamique : on interroge des sources externes.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+// Région Vercel proche des portails suisses (défaut : États-Unis).
+export const preferredRegion = "fra1";
+// immobilier.ch pagine avec des pauses de politesse : ~1 min.
+export const maxDuration = 120;
 
 // Durée pendant laquelle on réutilise le dernier snapshot sans re-solliciter
 // les portails (politesse + rapidité). Contournable avec ?refresh=1.

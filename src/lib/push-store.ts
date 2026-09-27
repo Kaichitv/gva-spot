@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { DATA_DIR } from "./data-dir";
 import type { SearchCriteria } from "./types";
 
 /**
@@ -17,10 +17,6 @@ import type { SearchCriteria } from "./types";
  * Données stockées : endpoint + clés de chiffrement du navigateur abonné et les
  * critères de recherche. Aucune donnée d'annonceur, aucun contact.
  */
-
-const DATA_DIR = process.env.VERCEL
-  ? path.join(os.tmpdir(), "gva-spot-data")
-  : path.join(process.cwd(), "data");
 const SUBS_FILE = path.join(DATA_DIR, "subscriptions.json");
 const NOTIFIED_FILE = path.join(DATA_DIR, "notified.json");
 

@@ -156,6 +156,12 @@ export const flatfox: SourceAdapter = {
   enabled: (process.env.SOURCE_FLATFOX ?? "true") !== "false",
   async fetch(box: BoundingBox): Promise<Listing[]> {
     const pks = await fetchPins(box);
+    if (!pks.length) {
+      // Jamais 0 à Genève en temps normal : rendre la cause visible dans le rapport.
+      throw new Error(
+        `Flatfox : 0 annonce dans la zone N${box.north} S${box.south} E${box.east} W${box.west} (zone erronée ou IP serveur filtrée ?)`
+      );
+    }
     const batch = 100;
     const all: Listing[] = [];
     for (let i = 0; i < pks.length; i += batch) {
