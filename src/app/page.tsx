@@ -90,16 +90,10 @@ export default function Page() {
       {/* En-tête */}
       <header className="mb-5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-ink shadow-[var(--shadow-sm)]">
-            <House size={22} weight="fill" />
-          </span>
           <div>
             <h1 className="text-[22px] font-bold leading-none tracking-tight">
-              GVA&nbsp;Spot
+              Rechercher
             </h1>
-            <p className="mt-0.5 text-[12px] text-muted">
-              Veille location · Genève
-            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">

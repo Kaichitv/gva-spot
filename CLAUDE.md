@@ -78,6 +78,7 @@ src/
       index.ts              registre ALL_SOURCES + fetch parallèle tolérant aux pannes
       flatfox.ts            ✅ API publique (pins bbox → détails par pk) — actif
       appt.ts               ✅ parsing HTML des régies GE — actif
+      immobilier.ts         ✅ HTML immobilier.ch (canton + ville) + NPA swisstopo — actif
       apify.ts              passerelle Apify générique + mapping commun
       homegate.ts / immoscout.ts / anibis.ts   ⚙️ via Apify — désactivés par défaut
 scripts/refresh.ts          CLI de rafraîchissement du cache
@@ -85,7 +86,7 @@ scripts/notify.ts           CLI du notifier (même loader .env : scripts/load-en
 scripts/generate-badge.mjs  régénère public/icons/badge-72.png (sharp)
 scripts/generate-icons.mjs  régénère icônes PWA/iOS + favicon (sharp, voir docs/icones-app.md)
 public/                     manifest.webmanifest, sw.js (cache + push), icônes
-data/                       cache local (git-ignoré)
+data/                       cache local (git-ignoré) ; geo-zip.json = cache NPA swisstopo
 docs/                       une fiche par fonctionnalité (voir « Documentation »)
 ```
 
@@ -126,6 +127,11 @@ les endpoints que la carte du site interroge, en deux temps : `/api/v1/pin/`
 `FLATFOX_PIN_API` / `FLATFOX_API` en tête de `src/lib/sources/flatfox.ts`
 (requêtes XHR via l'onglet Réseau). Le mapping des champs est tolérant.
 Idem pour les sélecteurs en tête de `src/lib/sources/appt.ts`.
+
+**⚠️ immobilier.ch** : pages HTML plafonnées à ~29 par recherche et tri
+« Offres TOP » aléatoire (on réutilise la graine `sd` de la page 1). NPA déduit
+des coordonnées via swisstopo, caché dans `data/geo-zip.json`. Rafraîchissement
+≈ 1 min. Détails : `docs/source-immobilier-ch.md`.
 
 ## Design system
 

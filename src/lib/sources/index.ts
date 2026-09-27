@@ -1,6 +1,7 @@
 import type { BoundingBox, FetchReport, Listing, SourceAdapter } from "../types";
 import { flatfox } from "./flatfox";
 import { appt } from "./appt";
+import { immobilier } from "./immobilier";
 import { homegate } from "./homegate";
 import { immoscout } from "./immoscout";
 import { anibis } from "./anibis";
@@ -8,6 +9,7 @@ import { anibis } from "./anibis";
 export const ALL_SOURCES: SourceAdapter[] = [
   flatfox,
   appt,
+  immobilier,
   homegate,
   immoscout,
   anibis,

@@ -6,6 +6,7 @@ import { House, MapPin, ArrowUpRight, Sparkle } from "@phosphor-icons/react";
 const SOURCE_LABEL: Record<string, string> = {
   flatfox: "Flatfox",
   appt: "APPT",
+  immobilier: "immobilier.ch",
   homegate: "Homegate",
   immoscout: "ImmoScout24",
   anibis: "Anibis",

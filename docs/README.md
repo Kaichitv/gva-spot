@@ -7,6 +7,7 @@ comment elle marche, ses réglages et ses limites.
 |---|---|
 | Notifications push des nouvelles annonces | [notifications-push.md](notifications-push.md) |
 | Icônes de l'app (PWA, iOS, favicon) | [icones-app.md](icones-app.md) |
+| Source immobilier.ch (régies romandes) | [source-immobilier-ch.md](source-immobilier-ch.md) |
 
 > Règle du projet (voir `CLAUDE.md`) : chaque nouvelle fonctionnalité ajoute sa
 > fiche ici et une ligne dans ce tableau.

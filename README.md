@@ -24,6 +24,7 @@ filtre, mais le contact se fait toujours sur l'annonce d'origine.
 |---|---|---|---|
 | **Flatfox** | ✅ activée | non | API géographique publique. Socle du MVP. |
 | **APPT** | ✅ activée | non | Agrège les régies genevoises (parsing HTML). |
+| **immobilier.ch** | ✅ activée | non | Portail des régies romandes (parsing HTML + NPA via swisstopo). Voir [docs/source-immobilier-ch.md](docs/source-immobilier-ch.md). |
 | **Homegate** | ⚙️ optionnelle | Apify | Groupe SMG, anti-bot. Désactivée par défaut. |
 | **ImmoScout24** | ⚙️ optionnelle | Apify | Groupe SMG, anti-bot. Désactivée par défaut. |
 | **Anibis** | ⚙️ optionnelle | Apify | CGU restrictives (duplication interdite). Désactivée par défaut. |
@@ -176,6 +177,7 @@ src/
       index.ts            registre + fetch parallèle tolérant aux pannes
       flatfox.ts          ✅ API géo publique
       appt.ts             ✅ parsing HTML régies GE
+      immobilier.ts       ✅ parsing HTML immobilier.ch + NPA swisstopo
       apify.ts            passerelle Apify générique + mapping
       homegate.ts immoscout.ts anibis.ts   ⚙️ via Apify
 scripts/refresh.ts        CLI de rafraîchissement du cache

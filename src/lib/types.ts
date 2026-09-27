@@ -7,6 +7,7 @@
 export type SourceId =
   | "flatfox"
   | "appt"
+  | "immobilier"
   | "homegate"
   | "immoscout"
   | "anibis";
