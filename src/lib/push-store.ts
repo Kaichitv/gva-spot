@@ -1,22 +1,26 @@
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import type { SearchCriteria } from "./types";
 
 /**
  * Store des abonnements Web Push + ledger des annonces déjà notifiées.
  *
- * ⚠️ STOCKAGE : fichiers JSON sous `data/`. Parfait en auto-hébergé (un seul
- * process Node, disque persistant), mais ÉPHÉMÈRE en serverless (Vercel,
- * Netlify…) : le disque n'y survit pas entre deux invocations. Pour un
- * déploiement serverless, c'est ICI qu'il faut brancher un KV (Upstash Redis,
- * Vercel KV…) : réimplémenter `readJson` / `writeJson` (ou les fonctions
- * exportées ci-dessous) sur le KV, le reste de l'app ne change pas.
+ * ⚠️ STOCKAGE : fichiers JSON sous `data/` (ou `/tmp` en serverless, voir plus
+ * bas). Parfait en auto-hébergé (un seul process Node, disque persistant),
+ * mais ÉPHÉMÈRE en serverless (Vercel, Netlify…) : le disque n'y survit pas
+ * entre deux invocations. Pour un déploiement serverless fiable, c'est ICI
+ * qu'il faut brancher un KV (Upstash Redis, Vercel KV…) : réimplémenter
+ * `readJson` / `writeJson` (ou les fonctions exportées ci-dessous) sur le KV,
+ * le reste de l'app ne change pas.
  *
  * Données stockées : endpoint + clés de chiffrement du navigateur abonné et les
  * critères de recherche. Aucune donnée d'annonceur, aucun contact.
  */
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.VERCEL
+  ? path.join(os.tmpdir(), "gva-spot-data")
+  : path.join(process.cwd(), "data");
 const SUBS_FILE = path.join(DATA_DIR, "subscriptions.json");
 const NOTIFIED_FILE = path.join(DATA_DIR, "notified.json");
 

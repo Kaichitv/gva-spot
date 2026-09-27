@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import type { Listing } from "./types";
 
@@ -8,9 +9,15 @@ import type { Listing } from "./types";
  *  2) éviter de re-solliciter les sources trop souvent (TTL court).
  *
  * Suffisant pour un usage perso mono-utilisateur. Pas de base de données.
+ *
+ * ⚠️ En serverless (Vercel…), `process.cwd()` est en lecture seule : on
+ * bascule sur `/tmp` (inscriptible, mais éphémère entre invocations — le
+ * TTL et le badge "nouveau" se réinitialisent plus souvent, sans planter).
  */
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.VERCEL
+  ? path.join(os.tmpdir(), "gva-spot-data")
+  : path.join(process.cwd(), "data");
 const SEEN_FILE = path.join(DATA_DIR, "seen.json");
 const SNAPSHOT_FILE = path.join(DATA_DIR, "snapshot.json");
 
