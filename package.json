@@ -8,20 +8,23 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "refresh": "tsx scripts/refresh.ts"
+    "refresh": "tsx scripts/refresh.ts",
+    "notify": "tsx scripts/notify.ts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
     "cheerio": "1.0.0",
     "next": "^15.5.26",
     "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react-dom": "19.0.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "22.10.7",
     "@types/react": "19.0.7",
     "@types/react-dom": "19.0.3",
+    "@types/web-push": "^3.6.4",
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
     "tsx": "4.19.2",

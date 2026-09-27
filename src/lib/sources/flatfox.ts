@@ -10,20 +10,21 @@ import {
 /**
  * Adaptateur Flatfox — la source la plus "propre" techniquement.
  *
- * Flatfox n'a pas d'API officielle documentée, mais la carte de recherche du
- * site interroge son propre endpoint public par bounding box géographique
- * (nord/sud/est/ouest). C'est ce qu'on utilise ici. Pas de clé requise.
+ * Flatfox n'a pas d'API officielle documentée ; on reproduit ce que fait la
+ * carte de recherche du site, en deux temps (pas de clé requise) :
+ *   1. FLATFOX_PIN_API : ids ("pins") des annonces dans la bounding box
+ *      (nord/sud/est/ouest), filtrables par type d'offre et catégorie ;
+ *   2. FLATFOX_API : détail des annonces, demandé par lots de `pk`.
+ *      ⚠️ Cet endpoint ignore la bounding box : sans `pk` il renvoie toute la
+ *      Suisse, d'où l'étape 1.
  *
- * ⚠️ À VÉRIFIER EN 10 s LA PREMIÈRE FOIS :
- *   Ouvre https://flatfox.ch/fr/search/ , fais une recherche sur Genève,
- *   ouvre l'onglet Réseau (Network) du navigateur et repère la requête XHR
- *   qui renvoie du JSON de logements. Copie son chemin exact dans FLATFOX_API
- *   ci-dessous si celui par défaut renvoie 404. Le reste du code (mapping des
- *   champs) est robuste aux variations de nom grâce à pick().
+ * Si l'un des deux renvoie 404/403, ouvre https://flatfox.ch/fr/search/ ,
+ * onglet Réseau (Network) du navigateur, et repère les requêtes XHR JSON
+ * correspondantes. Le mapping des champs est tolérant grâce à pick().
  */
 
-// Chemin de l'API publique. Ajuste-le si besoin (voir note ci-dessus).
-const FLATFOX_API = "https://flatfox.ch/api/v1/flat/";
+const FLATFOX_PIN_API = "https://flatfox.ch/api/v1/pin/";
+const FLATFOX_API = "https://flatfox.ch/api/v1/public-listing/";
 
 // En-têtes façon navigateur : Flatfox filtre les requêtes trop "robotisées".
 const HEADERS: Record<string, string> = {
@@ -49,11 +50,13 @@ function mapFlat(raw: any): Listing | null {
 
   // Flatfox expose souvent une "url" relative ; on la préfixe si besoin.
   let url = String(pick(raw, ["url", "public_url"]) ?? "");
-  if (url && url.startsWith("/")) url = `https://flatfox.ch${url}`;
+  if (url && url.startsWith("/")) url = `https://flatfox.ch${url.replace(/^\/(en|de|it)\//, "/fr/")}`;
   if (!url) url = `https://flatfox.ch/fr/flat/${ref}/`;
 
+  // Flatfox renvoie le NPA sous forme de nombre (1200) : on le normalise en chaîne.
+  const rawZip = pick(raw, ["zipcode", "zip", "postal_code"]);
   const zip =
-    (pick<string>(raw, ["zipcode", "zip", "postal_code"]) ?? null) ||
+    (rawZip != null ? String(rawZip) : null) ||
     extractZip(pick<string>(raw, ["public_address", "street", "address"]));
 
   const rentGross = toNumber(pick(raw, ["price_display", "rent_gross", "gross_rent"]));
@@ -63,9 +66,13 @@ function mapFlat(raw: any): Listing | null {
   const cover =
     pick<any>(raw, ["cover_image", "coverImage"]) ??
     (Array.isArray(raw?.images) ? raw.images[0] : undefined);
-  const imageUrl =
-    (typeof cover === "string" ? cover : pick<string>(cover, ["url", "src"])) ??
+  // Vignette affichée en lien direct depuis Flatfox (jamais réhébergée).
+  let imageUrl =
+    (typeof cover === "string"
+      ? cover
+      : pick<string>(cover, ["url_thumb_m", "url_listing_search", "url", "src"])) ??
     null;
+  if (imageUrl && imageUrl.startsWith("/")) imageUrl = `https://flatfox.ch${imageUrl}`;
 
   const title =
     pick<string>(raw, ["title", "public_title", "name"]) ??
@@ -101,7 +108,22 @@ function mapFlat(raw: any): Listing | null {
   };
 }
 
-async function fetchPage(box: BoundingBox, offset: number, limit: number): Promise<any[]> {
+async function getJson(url: string): Promise<any> {
+  const res = await fetch(url, {
+    headers: HEADERS,
+    // On ne veut jamais de cache Next côté fetch serveur ici.
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(
+      `Flatfox HTTP ${res.status} (${url.split("?")[0]}). Si c'est 404/403, vérifie les endpoints en tête de src/lib/sources/flatfox.ts.`
+    );
+  }
+  return res.json();
+}
+
+/** Étape 1 : ids des appartements à louer dans la bounding box. */
+async function fetchPins(box: BoundingBox): Promise<number[]> {
   const params = new URLSearchParams({
     offer_type: "RENT",
     object_category: "APARTMENT",
@@ -109,21 +131,21 @@ async function fetchPage(box: BoundingBox, offset: number, limit: number): Promi
     south: String(box.south),
     east: String(box.east),
     west: String(box.west),
-    ordering: "-published",
-    limit: String(limit),
-    offset: String(offset),
+    max_count: "1000", // plafond imposé par l'API
   });
-  const res = await fetch(`${FLATFOX_API}?${params.toString()}`, {
-    headers: HEADERS,
-    // On ne veut jamais de cache Next côté fetch serveur ici.
-    cache: "no-store",
+  const json = await getJson(`${FLATFOX_PIN_API}?${params.toString()}`);
+  const rows: any[] = Array.isArray(json) ? json : json.results ?? [];
+  return rows.map((r) => Number(r?.pk)).filter((pk) => Number.isFinite(pk));
+}
+
+/** Étape 2 : détail d'un lot d'annonces. */
+async function fetchDetails(pks: number[]): Promise<any[]> {
+  const params = new URLSearchParams({
+    limit: String(pks.length),
+    expand: "cover_image",
   });
-  if (!res.ok) {
-    throw new Error(
-      `Flatfox HTTP ${res.status}. Si c'est 404/403, vérifie FLATFOX_API dans src/lib/sources/flatfox.ts (voir note en tête de fichier).`
-    );
-  }
-  const json = await res.json();
+  for (const pk of pks) params.append("pk", String(pk));
+  const json = await getJson(`${FLATFOX_API}?${params.toString()}`);
   // L'API peut renvoyer {results: [...]} ou directement un tableau.
   return Array.isArray(json) ? json : json.results ?? json.data ?? [];
 }
@@ -133,19 +155,19 @@ export const flatfox: SourceAdapter = {
   label: "Flatfox",
   enabled: (process.env.SOURCE_FLATFOX ?? "true") !== "false",
   async fetch(box: BoundingBox): Promise<Listing[]> {
-    const limit = 50;
-    const maxPages = 6; // garde-fou (l'API plafonne ~1000 résultats/bbox)
+    const pks = await fetchPins(box);
+    const batch = 100;
     const all: Listing[] = [];
-    for (let page = 0; page < maxPages; page++) {
-      const rows = await fetchPage(box, page * limit, limit);
-      if (!rows.length) break;
+    for (let i = 0; i < pks.length; i += batch) {
+      if (i > 0) {
+        // Politesse : petite pause entre lots.
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      const rows = await fetchDetails(pks.slice(i, i + batch));
       for (const r of rows) {
         const l = mapFlat(r);
         if (l) all.push(l);
       }
-      if (rows.length < limit) break;
-      // Politesse : petite pause entre pages.
-      await new Promise((r) => setTimeout(r, 400));
     }
     return all;
   },

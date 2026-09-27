@@ -5,6 +5,8 @@ import type { DedupedListing } from "@/lib/dedupe";
 import type { FetchReport, SearchCriteria } from "@/lib/types";
 import Filters from "@/components/Filters";
 import ListingCard from "@/components/ListingCard";
+import PushToggle from "@/components/PushToggle";
+import { CRITERIA_STORAGE_KEY, syncPushCriteria } from "@/lib/push-client";
 import { House, Clock, CaretDown } from "@phosphor-icons/react";
 
 interface ApiResponse {
@@ -15,7 +17,7 @@ interface ApiResponse {
   listings: DedupedListing[];
 }
 
-const STORAGE_KEY = "gva-spot:criteria";
+const STORAGE_KEY = CRITERIA_STORAGE_KEY;
 
 function buildParams(c: SearchCriteria, refresh: boolean): string {
   const p = new URLSearchParams();
@@ -72,6 +74,8 @@ export default function Page() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
     } catch {}
+    // Abonné aux alertes ? On aligne les critères côté serveur (débouncé).
+    syncPushCriteria(c);
   };
 
   const fetchedLabel = data
@@ -98,10 +102,13 @@ export default function Page() {
             </p>
           </div>
         </div>
-        <span className="chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] text-muted">
-          <Clock size={13} weight="bold" />
-          {fetchedLabel}
-        </span>
+        <div className="flex items-center gap-2">
+          <PushToggle />
+          <span className="chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] text-muted">
+            <Clock size={13} weight="bold" />
+            {fetchedLabel}
+          </span>
+        </div>
       </header>
 
       <Filters
