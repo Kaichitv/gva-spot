@@ -1,0 +1,30 @@
+{
+  "name": "gva-spot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GVA Spot — agrégateur perso d'annonces de location à Genève (comparateur qui redirige vers la source).",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "refresh": "tsx scripts/refresh.ts"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
+    "cheerio": "1.0.0",
+    "next": "^15.5.26",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "22.10.7",
+    "@types/react": "19.0.7",
+    "@types/react-dom": "19.0.3",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^4.3.3",
+    "tsx": "4.19.2",
+    "typescript": "5.7.3"
+  }
+}

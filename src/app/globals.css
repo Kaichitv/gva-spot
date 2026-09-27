@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   GVA Spot — design system
+   Sombre par défaut, minimaliste :
+   - surfaces pleines superposées (bg → surface-1 → surface-2)
+   - élévation par ombres propres, bordures 1px très discrètes
+   - palette en gris neutres, UN seul accent (rose), utilisé avec parcimonie
+   - clair/sombre suivant le réglage système (prefers-color-scheme)
+--------------------------------------------------------------------------- */
+
+/* Tokens exposés à Tailwind. `inline` : les utilitaires référencent
+   directement les variables runtime, qui basculent avec le thème. */
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  --color-canvas: var(--bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-danger: var(--danger);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  /* Accent employé comme texte/trait sur une surface (contraste AA). */
+  --color-accent-fg: var(--accent-fg);
+}
+
+/* Thème sombre (référence, par défaut). */
+:root {
+  --bg: #0a0a0b;
+  --surface-1: #141416; /* panneaux, cartes */
+  --surface-2: #1b1b1f; /* champs, hover, éléments surélevés */
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #f4f4f5;
+  --text-muted: #8a8a93;
+  --danger: #f87171;
+
+  --accent: #f472b6; /* rose */
+  --accent-hover: #ec4899;
+  --accent-soft: rgba(244, 114, 182, 0.12); /* fond teinté discret */
+  --accent-ink: #14060d; /* texte SUR l'accent */
+  --accent-fg: #f472b6;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+}
+
+/* Thème clair : mêmes règles, ombres plus légères. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f6f7;
+    --surface-1: #ffffff;
+    --surface-2: #f1f1f3;
+    --border: rgba(0, 0, 0, 0.08);
+    --border-strong: rgba(0, 0, 0, 0.16);
+    --text: #18181b;
+    /* Légèrement plus sombre que #6b7280 pour tenir l'AA sur surface-2. */
+    --text-muted: #5f636e;
+    --danger: #dc2626;
+
+    /* Le rose #f472b6 est trop clair pour du texte sur blanc : on garde le
+       même accent en aplat, mais une teinte plus dense pour texte/traits. */
+    --accent-fg: #db2777;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.12);
+
+    color-scheme: light;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    font-family: var(--font-sans);
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100dvh;
+  }
+  input,
+  select,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+  /* Focus clavier visible partout (les champs ont leur propre anneau). */
+  :focus-visible {
+    outline: 2px solid var(--accent-fg);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Surface élevée : panneaux, cartes. */
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 1rem; /* rounded-2xl */
+    box-shadow: var(--shadow-md);
+  }
+  /* Variante interactive (liens-cartes). */
+  .card-hover {
+    transition: transform 180ms ease, box-shadow 180ms ease,
+      border-color 180ms ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--border-strong);
+  }
+
+  /* Champ de saisie. */
+  .field {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem; /* rounded-xl */
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .field:hover {
+    border-color: var(--border-strong);
+  }
+  .field:focus,
+  .field:focus-visible {
+    outline: none;
+    border-color: var(--accent-fg);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .field::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+  }
+
+  /* Pastille neutre (source, agence, quartiers, bouton secondaire). */
+  .chip {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+  button.chip {
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+  button.chip:hover:not(:disabled) {
+    border-color: var(--border-strong);
+  }
+
+  /* Bouton primaire : l'accent. */
+  .btn-primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: var(--shadow-sm);
+    transition: background-color 150ms ease;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+}
+
+@layer utilities {
+  /* Réduction de mouvement respectée */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+    .card-hover:hover {
+      transform: none;
+    }
+  }
+}
