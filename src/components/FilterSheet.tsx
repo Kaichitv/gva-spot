@@ -202,8 +202,10 @@ export default function FilterSheet({
         </div>
       </div>
 
-      {/* Corps défilant */}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      {/* Corps défilant. `flex-auto` (base = contenu) et non `flex-1` (base 0%) :
+          le panneau n'a qu'une max-height, et WebKit (iOS) écrase alors une
+          base 0% à zéro — le panneau restait réduit à l'en-tête + pied. */}
+      <div className="min-h-0 flex-auto overflow-y-auto overscroll-contain">
         <Section title="Budget" hint="Loyer mensuel, charges comprises si connues.">
           <div className="mt-4 grid grid-cols-2 gap-3">
             <NumberBox

@@ -159,6 +159,7 @@
     padding: 0;
     width: 100%;
     max-width: 100%;
+    max-height: calc(100vh - max(1.5rem, env(safe-area-inset-top))); /* iOS < 15.4 */
     max-height: calc(100dvh - max(1.5rem, env(safe-area-inset-top)));
     display: flex;
     flex-direction: column;
