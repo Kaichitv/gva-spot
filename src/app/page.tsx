@@ -6,6 +6,7 @@ import type { FetchReport, SearchCriteria } from "@/lib/types";
 import Filters from "@/components/Filters";
 import ListingCard from "@/components/ListingCard";
 import PushToggle from "@/components/PushToggle";
+import ElsewhereLinks from "@/components/ElsewhereLinks";
 import { CRITERIA_STORAGE_KEY, syncPushCriteria } from "@/lib/push-client";
 import { buildParams, countActive } from "@/lib/criteria-ui";
 import { ArrowClockwise, CaretDown } from "@phosphor-icons/react";
@@ -177,6 +178,9 @@ export default function Page() {
         </div>
       )}
 
+      {/* Fin de liste (ou aucun résultat) : sources non agrégées, en lien sortant */}
+      {!loading && data && <ElsewhereLinks criteria={criteria} />}
+
       {/* Rapport sources */}
       {data && (
         <details className="group mt-6">
@@ -208,9 +212,7 @@ export default function Page() {
         Outil personnel de veille. Les annonces restent la propriété de leurs
         portails et régies ; ce comparateur ne fait que rediriger vers la source
         (le contact se fait sur l&apos;annonce). Aucune photo ni coordonnée
-        personnelle n&apos;est réhébergée. Pense aussi au logement subventionné
-        (SFIDP · fidp.ch, GIM) et aux coopératives (CODHA, Équilibre), qui
-        fonctionnent par inscription et non par annonces.
+        personnelle n&apos;est réhébergée.
       </p>
     </main>
   );

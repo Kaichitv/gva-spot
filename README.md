@@ -15,6 +15,9 @@ filtre, mais le contact se fait toujours sur l'annonce d'origine.
 - **Filtre** par pièces, surface, loyer max, quartier/commune, meublé, mot-clé.
 - Marque les **nouveautés** (« jamais vues avant ») grâce à un cache disque.
 - **PWA** : installable sur iOS/Android, écran d'accueil, coquille hors-ligne.
+- **Continuer ailleurs** : en fin de liste, lien vers Facebook Marketplace avec
+  tes critères pré-remplis + logement subventionné et coopératives (liens
+  sortants, rien n'est récupéré — voir [docs/recherche-ailleurs.md](docs/recherche-ailleurs.md)).
 - **Alertes push** : notification dès qu'une nouvelle annonce correspond à tes
   critères (Web Push, voir [Notifications](#notifications)).
 
@@ -164,7 +167,7 @@ src/
     api/listings/route.ts lit le snapshot → dédoublonne → filtre → JSON (rafraîchit après la réponse si > 30 min)
     api/push/subscribe/   abonnements push (POST / PATCH / DELETE)
     api/cron/notify/      rafraîchissement + notifier en arrière-plan (protégé par CRON_SECRET)
-  components/             Filters, FilterSheet, ListingCard, PushToggle, RegisterSW
+  components/             Filters, FilterSheet, ListingCard, ElsewhereLinks, PushToggle, RegisterSW
   lib/
     types.ts              modèle Listing commun + contrat SourceAdapter
     normalize.ts          NPA→quartier, parsing nombres, extraits

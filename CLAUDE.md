@@ -64,6 +64,7 @@ src/
     Filters.tsx             barre de recherche collante + bascules rapides (client)
     FilterSheet.tsx         panneau « Filtres » : bottom sheet mobile / modale (client)
     ListingCard.tsx         carte d'annonce (client)
+    ElsewhereLinks.tsx      fin de liste : liens sortants (Marketplace pré-rempli, SFIDP, GIM, coopératives)
     PushToggle.tsx          bouton « Alertes » : permission + (dés)abonnement (client)
     RegisterSW.tsx          enregistre le service worker
   lib/
